@@ -1,1 +1,27 @@
 ercitazione1 con semafori
+
+semaphore array[0..99] clients
+integer last <- 1
+semaphore full <- 0
+semaphore baker,mutex <- 1
+
+Fornaio
+integer serving <- 0
+loop forever
+	P(mutex)
+	if serving == last
+		V(mutex)
+		<leggi il giornale>
+		
+	else
+		V(mutex)
+		serving = (serving + 1) % 100
+		V(clients[serving])
+		P(baker)
+		<servi il cliente con indice serving>
+		
+
+Cliente
+<>
+
+
