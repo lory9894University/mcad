@@ -15,13 +15,22 @@ loop forever
 		
 	else
 		V(mutex)
-		serving = (serving + 1) % 100
+		serving <- (serving + 1) % 100
 		V(clients[serving])
 		P(baker)
 		<servi il cliente con indice serving>
-		
+		#a che serve il "V(client[next])"?
 
 Cliente
-<>
-
+P(mutex)
+last <- (last+1) % 100
+integer me <- last #qualcuno potrebbe modificare il valore di last prima che il cliente si metta in attesa
+V(mutex)
+P(client[me])
+<ordina spesa>
+V(baker)
+<esci dal negozio>
+ 
+# se la coda supera le 100 persone io creerei una linked list, i clienti si bloccano su un semaforo e ne creano uno nuovo su cui il prossimo in coda potrà bloccarsi, quando il cliente prende il numero "sblocca" il semaforo del cliente dopo di lui (senza numero).
+#altrimenti blocchiamo tutti i clienti sullo stesso semaforo e li sblocchiamo quando c'e un numero libero, il primo che entra entra.
 
