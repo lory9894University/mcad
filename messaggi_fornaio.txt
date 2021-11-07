@@ -2,33 +2,32 @@ process server{
 	int MAX = 100
 	int serving = 0, last = 0;
 	int nrClients = 0
-	process clients[0,MAX-1];
-	port signal takeNumber, nextClient;
+	port signal takeNumber, nextClient, ok_number, call_client;
 	port Order makeOrder;
 	port Bread serveBread;
-	boolean servingClient = false,orderingClient = false;
+	boolean servingClient = false, orderingClient = false;
 	signal s;
 	Order order;
 	Bread bread;
-	process client, baker;
+	process baker;
 
 	do
-		(nrClients != MAX); client= receive (s) from takeNumber; ->
+		(nrClients < MAX) p = receive (s) from takeNumber; ->
 		{
 			nrCLients ++;
 			last = (last + 1) % MAX;
-			clients[last]=client;
+			p = receive (s) from ok_number;
 		
 		}
 
-		(last != serving) -> baker = receive (s) from nextClient; ->
+		(last != serving) p = receive (s) from nextClient; ->
 		{
 			serving = (serving + 1) % MAX; 
-			send (s) to clients[serving].called;
+			p = receive (s) from call_client;
 			orderingClient = true;
 		}
 
-		(orderingClient == true) client = receive (order) from makeOrder; ->
+		(orderingClient == true) p = receive (order) from makeOrder; ->
 		{
 			send (order) to baker.takeOrder;
 			orderingClient = false;
@@ -71,7 +70,8 @@ process client{
 	port Bread receiveBread;
 
 	send (s) to server.takeNumber;
-	p=receive (s) from called;
+	send (s) to server.ok_number;
+	send (s) to server.call_client;
 	order = <effettua ordine>
 	send (order) to server.makeOrder;
 	p=receive (bread) from receiveBread;
