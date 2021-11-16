@@ -1,58 +1,58 @@
 process server{
-	int MAX = 100
-	int serving = 0, last = 0;
-	int nrClients = 0
-	port signal takeNumber, nextClient, ok_number, call_client;
-	port Order makeOrder;
-	port Bread serveBread;
-	boolean servingClient = false, orderingClient = false;
-	signal s;
-	Order order;
-	Bread bread;
-	process baker;
+int MAX = 100
+int serving = 0, last = 0;
+int nrClients = 0
+process clients[0,MAX-1];
+port signal takeNumber, nextClient;
+port Order makeOrder;
+port Bread serveBread;
+boolean servingClient = false,orderingClient = false;
+signal s;
+Order order;
+Bread bread;
+process client, baker;
 
-	do
-		(nrClients < MAX) p = receive (s) from takeNumber; ->
-		{
-			nrCLients ++;
-			last = (last + 1) % MAX;
-			p = receive (s) from ok_number;
-		
-		}
+do
+	(nrClients != MAX); client= receive (s) form takeNumber; ->
+	{
+		nrCLients ++;
+		last = (last + 1) % MAX;
+		clients[last]=client;
+	}
 
-		(last != serving) p = receive (s) from nextClient; ->
-		{
-			serving = (serving + 1) % MAX; 
-			p = receive (s) from call_client;
-			orderingClient = true;
-		}
+	(last != serving) -> baker = receive (s) from nextClient; ->
+	{
+		serving = (serving + 1) % MAX; 
+		send (s) to clients[serving].called;
+		orderingClient = true;
+	}
 
-		(orderingClient == true) p = receive (order) from makeOrder; ->
-		{
-			send (order) to baker.takeOrder;
-			orderingClient = false;
-			servingClient = true;
-		}
+	(orderingClient == true) client = receive (order) from makeOrder; ->
+	{
+		send (order) to baker.takeOrder;
+		orderingClient = false;
+		servingClient = true;
+	}
 	
-		(servingClient == true) baker =  receive (bread) from serveBread; ->
-		{
-			send (bread) to client.receiveBread;
-			servingClient = false;
-			nrClients --;
-		} 	
-
-	od
+	(servingClient == true) baker =  receive (bread) from serveBread; ->
+	{
+		send (bread) to client.receiveBread;
+		servingClient = false;
+		nrClients --;
+	} 	
+	
+od
 }
 
 process baker{
-	signal s;
-	process p;
-	port signal nextClient;	
-	port Order takeOrder;
-	Bread bread;
-	Order order;
-	
-	loop forever
+signal s;
+process p;
+port signal nextClient;
+port Order takeOrder;
+Bread bread;
+Order order;
+
+loop forever
 		send (s) to server.nextClient;
 		p = receive (order) from takeOrder;
 		bread = <take bread>
@@ -60,20 +60,19 @@ process baker{
 }
 
 process client{
-	signal s;
-	process p;
-	int myNum; #probabilmente non serve
-	Order order;
-	Bread bread;
-	port int number;
-	port signal called;
-	port Bread receiveBread;
+signal s;
+process p;
+Order order;
+Bread bread;
+port int number;
+port signal called;
+port Bread receiveBread;
 
-	send (s) to server.takeNumber;
-	send (s) to server.ok_number;
-	send (s) to server.call_client;
-	order = <effettua ordine>
-	send (order) to server.makeOrder;
-	p=receive (bread) from receiveBread;
-	<esci dal negozio>
+send (s) to server.takeNumber;
+
+p=receive (s) from called;
+order = <effettua ordine>
+send (order) to server.makeOrder;
+p=receive (bread) from receiveBread;
+<esci dal negozio>
 }
