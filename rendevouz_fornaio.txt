@@ -1,0 +1,68 @@
+process server{
+int MAX = 100
+int serving = 0, last = 1;
+int nrClients = 0
+process clients[0,MAX-1];
+entry takeNumber, nextClient;
+entry makeOrder(in Order order);
+entry serveBread(in Bread bread);
+entry receivedBread(out Bread bread)
+boolean servingClient = false,orderingClient = false;
+Order newOrder;
+Bread receivedBread;
+
+do
+	(nrClients != MAX);  accept takeNumber(out int number) 
+	{
+		number = last;
+	}; -> 
+		nrCLients ++;
+		last = (last + 1) % MAX;
+
+
+	(nrClient != 0); accept nextClient; ->
+		orderingClient = true;
+		accept called[serving];
+		serving = (serving + 1) % MAX; 
+
+
+	(orderingClient == true) accept makeOrder(in Order order)
+	{newOrder = order}; ->
+		call baker.takeOrder(newOrder);
+		orderingClient = false;
+		servingClient = true;
+	
+	(servingClient == true) accept serveBread(in Bread bread)
+	{ receivedBread = bread}; ->
+		accept receiveBread(out Bread receivedBread);
+		servingClient = false;
+		nrClients --;	
+	
+od
+}
+
+process baker{
+Bread bread;
+Order newOrder;
+entry takeOrder(in Order order);
+
+loop forever
+		call server.nextClient;
+		accept takeOrder(in Order order) {newOrder = order};
+		bread = <take bread>
+		call server.serveBread(bread);
+}
+
+process client{
+Order order;
+Bread receivedBread;
+int number;
+
+call server.takeNumber(number);
+
+call server.called[number]();
+
+order = <effettua ordine>
+
+call server.receiveBread(bread){receivedBread = bread}
+}
