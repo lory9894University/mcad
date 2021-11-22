@@ -1,39 +1,59 @@
 const int MAX <- 100;
 
-monitor queue {
-	condition tickets[MAX];
-	integer num_clients <- 0;
+monitor forno {
+	condition biglietti[MAX];
+	integer num_clienti <- 0;
 	integer last,serving <- 0;
-	condition full, baker, empty;
+	condition full, baker, empty, ordine;
+	
+	controllaClienti(){
+	if (num_clienti == 0)
+		wait(empty);
+	}
 
-	public void client_action(Client client)
-		if num_clients == MAX then 
-			wait (full); #i clienti fuori dal negozio aspettano us full
-		last <- (last + 1) % MAX;
-		num_client++;
-		signal(empty) # avverte il fornaio che il negozio non è più vuoro
-		wait(ticket[last]) #il cliente aspetta che venga chiamato il suo numero
-		<ordina spesa>
-		signal(baker)
-		wait(ticket[serving]) #se usassi last al posto di serving rischierei che un altro cliente cambi last 
-		<esci dal negozio>
-		num_clients--;
-		signal(full)
+	prendiNumero(){
+	if(num_client == MAX) wait(full);
+	last = (last + 1) % MAX;
+	num_clienti++;
+	signal(empty);
+	wait(biglietti[last]);
+	}
+	
+	chiamoProssimo(){
+	serving = (serving + 1)  %MAX	
+	signal(biglietti[serving]);
+	wait(ordine);
+	}
+	
+	ordina(){
+		signal(ordine);
+		wait(bigliettto[serving]);
+	}
 
-	public void baker_action()
-		if num_clients == 0 then
-			<leggi giornale>
-			wait(empty); #il negozio è vuoto, si mette in attesa su empty per evitare attesa attiva
-		serving++;
-		signal(ticket[serving]) #il fornaio chiama il numero da servire
-		wait(baker)
-		<servi cliente con indice serving>
-		signal(ticket[serving])
+	servi(){
+		signal(biglietto[serving]);
+		wait(baker);
+	}
+		
+	esci{
+		num_clienti--;
+		signal(full);
+		signal(baker);
+	}
 }
 
 Fornaio 
 	loop forever:
-		queue.baker_action()
+		forno.controllaClienti();
+		forno.chiamaProssimo();
+		<prepara ordine>
+		forno.servi();
 
 Cliente 
-	queue.client_action()
+	
+	forno.prendiNumero();
+	<effettua ordine>
+	forno.ordina();
+	forno.esci();
+	<esci dal negozio>
+	
