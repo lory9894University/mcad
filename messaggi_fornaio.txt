@@ -1,78 +1,56 @@
-process server{
-int MAX = 100
-int serving = 0, last = 0;
-int nrClients = 0
-process clients[0,MAX-1];
-port signal takeNumber, nextClient;
-port Order makeOrder;
-port Bread serveBread;
-boolean servingClient = false,orderingClient = false;
-signal s;
-Order order;
-Bread bread;
-process client, baker;
+process biglietteria{
+	int MAX = 100
+	int daServire = 0, ultimo = 0;
+	int nrClienti = 0
+	process biglietti[0,MAX-1];
+	port signal prendiNumero, prossimoCliente, uscitaCliente;
+	signal s;
+	process p;
 
-do
-	(nrClients != MAX); client= receive (s) form takeNumber; ->
-	{
-		nrCLients ++;
-		last = (last + 1) % MAX;
-		clients[last]=client;
-	}
+	do
+		(nrClienti < MAX); p = receive (s) form prendiNumero; ->
+		{
+			nrClienti ++;
+			ultimo = (ultimo + 1) % MAX;
+			biglietti[ultimo]= p;
+		}
 
-	(last != serving) -> baker = receive (s) from nextClient; ->
-	{
-		serving = (serving + 1) % MAX; 
-		send (s) to clients[serving].called;
-		orderingClient = true;
-	}
-
-	(orderingClient == true) client = receive (order) from makeOrder; ->
-	{
-		send (order) to baker.takeOrder;
-		orderingClient = false;
-		servingClient = true;
-	}
+		(ultimo != daServire) -> p = receive (s) from prossimoCliente; ->
+		{
+			daServire = (daServire + 1) % MAX; 
+			send (s) to biglietti[daServire].turno;
+		}
 	
-	(servingClient == true) baker =  receive (bread) from serveBread; ->
-	{
-		send (bread) to client.receiveBread;
-		servingClient = false;
-		nrClients --;
-	} 	
-	
-od
+		p = receive (s) from uscitaCliente; ->
+		{
+			nrClienti --;
+			send (s) to fornaio.fineServizio
+		} 
+	od
 }
 
-process baker{
-signal s;
-process p;
-port signal nextClient;
-port Order takeOrder;
-Bread bread;
-Order order;
+process fornaio{
+	signal s;
+	process p;
+	port signal ordinazione, fineServizio;
 
-loop forever
-		send (s) to server.nextClient;
-		p = receive (order) from takeOrder;
-		bread = <take bread>
-		send (bread) to server.serveBread;
+	loop forever
+		send (s) to biglietteria.prossimoCliente;
+		p = receive (s) from ordinazione;
+		<prepara ordine>
+		send (s) to p.servizio;
+		p = receive (s) to fineServizio;
 }
 
-process client{
-signal s;
-process p;
-Order order;
-Bread bread;
-port int number;
-port signal called;
-port Bread receiveBread;
+process cliente[i]{
+	signal s;
+	process p;
+	port signal turno, servizio;
 
-send (s) to server.takeNumber;
-
-p=receive (s) from called;
-order = <effettua ordine>
-send (order) to server.makeOrder;
-p=receive (bread) from receiveBread;
-<esci dal negozio>
+	send (s) to biglietteria.prendiNumero;
+	p = receive (s) from turno;
+	<effettua ordine>
+	send (s) to fornaio.ordinazione;
+	p = receive (s) from servizio;
+	send (s) to biglietteria.uscita;
 }
