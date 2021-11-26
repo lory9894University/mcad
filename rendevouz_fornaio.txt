@@ -1,68 +1,61 @@
-process server{
-int MAX = 100
-int serving = 0, last = 1;
-int nrClients = 0
-process clients[0,MAX-1];
-entry takeNumber, nextClient;
-entry makeOrder(in Order order);
-entry serveBread(in Bread bread);
-entry receivedBread(out Bread bread)
-boolean servingClient = false,orderingClient = false;
-Order newOrder;
-Bread receivedBread;
+process biglietteria{
+	int MAX = 100
+	int bigliettoDaServire = 1; 
+	int ultimo = 1;
+	int nrClienti = 0
+	entry prendiNumero(out int numeroBiglietto);
+	entry prossimoCliente(out int prossimoBiglietto);
+	entry uscitaCliente;
 
-do
-	(nrClients != MAX);  accept takeNumber(out int number) 
-	{
-		number = last;
-	}; -> 
-		nrCLients ++;
-		last = (last + 1) % MAX;
+	do
+		(nrClienti < MAX);  accept prendiNumero(out int numeroBiglietto) {
+				numeroBiglietto = ultimo;
+			}; -> 
+			nrClienti ++;
+			ultimo = (ultimo + 1) % MAX;
 
-
-	(nrClient != 0); accept nextClient; ->
-		orderingClient = true;
-		accept called[serving];
-		serving = (serving + 1) % MAX; 
-
-
-	(orderingClient == true) accept makeOrder(in Order order)
-	{newOrder = order}; ->
-		call baker.takeOrder(newOrder);
-		orderingClient = false;
-		servingClient = true;
+		(nrClienti != 0); accept prossimoCliente(out int prossimoBiglietto) {
+				prossimoBiglietto = bigliettoDaServire
+			}; ->
+			bigliettoDaServire = (bigliettoDaServire + 1) % MAX; 
+		
+		accept uscitaCliente; ->
+			nrClienti --;
+			call fornaio.fineServizio;
 	
-	(servingClient == true) accept serveBread(in Bread bread)
-	{ receivedBread = bread}; ->
-		accept receiveBread(out Bread receivedBread);
-		servingClient = false;
-		nrClients --;	
-	
-od
+	od
 }
 
-process baker{
-Bread bread;
-Order newOrder;
-entry takeOrder(in Order order);
+process fornaio{ 
+	entry turno[0,MAX-1];	
+	entry ordinazione(in Ordine ordine);
+	entry servizio(out Spesa spesa);
+	int bigliettoDaServire;
+	Ordine nuovoOrdine;
+	Spesa nuovaSpesa;
 
-loop forever
-		call server.nextClient;
-		accept takeOrder(in Order order) {newOrder = order};
-		bread = <take bread>
-		call server.serveBread(bread);
+	loop forever
+		call biglietteria.prossimoCliente(bigliettoDaServire);
+		accept turno[bigliettoDaServire];
+		accept ordinazione(in Ordine ordine) {
+			nuovoOrdine = ordine
+		};
+		nuovaSpesa = <prepara ordine nuovoOrdine>
+		accept servizio(out Spesa spesa){
+			spesa = nuovaSpesa;
+		};
+		accept fineServizio;
 }
 
-process client{
-Order order;
-Bread receivedBread;
-int number;
+process cliente[i]{
+	int mioNumero;
+	Ordine ordine;
+	Spesa spesa;	
 
-call server.takeNumber(number);
-
-call server.called[number]();
-
-order = <effettua ordine>
-
-call server.receiveBread(bread){receivedBread = bread}
+	call biglietteria.prendiNumero(mioNumero);
+	call fornario.turno[mioNumero];
+	ordine = <prepara ordine>
+	call fornaio.ordinazione(ordine);
+	call fornaio.servizio(spesa);
+	call biglietteria.uscitaCliente;
 }
