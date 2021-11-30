@@ -54,3 +54,73 @@ process cliente[i]{
 	p = receive (s) from servizio;
 	send (s) to biglietteria.uscita;
 }
+
+
+
+--------------------------------------------------------------------------------------------
+
+process biglietteria{
+	int MAX = 100
+	int bigliettoDaServire = 0; 
+	int ultimo = 0;
+	int nrClienti = 0
+	port signal prendiNumero;
+	port signal prossimoCliente;
+	port signal uscitaCliente;
+	signal s;
+	process p;
+
+	do
+		(nrClienti < MAX);  p = receive (s) from prendiNumero; -> 
+			nrClienti ++;
+			ultimo = (ultimo + 1) % MAX;
+			send (ultimo) to p.ok_numero
+
+		(nrClienti != 0); p = receive (s) from prossimoCliente ->
+			bigliettoDaServire = (bigliettoDaServire + 1) % MAX; 
+			send (bigliettoDaServire) to p.ok_prossimo;
+		
+		p = receive (s) from uscitaCliente; ->
+			nrClienti --;
+			send (s) to fornaio.fineServizio;
+	
+	od
+}
+
+process fornaio{ 
+	port signal turno[0,MAX-1];	
+	port int ok_prossimo;
+	port Ordine ordinazione;
+	port signal fine_servizio;
+	int bigliettoDaServire;
+	Ordine nuovoOrdine;
+	Spesa nuovaSpesa;
+	signal s;
+	process p;
+
+	loop forever
+		send (s) to biglietteria.prossimoCliente;
+		P = receive (bigliettoDaServire) from ok_prossimo;
+		p = receive (s) from turno[bigliettoDaServire];
+		p = receive (nuovoOrdine) from ordinazione;
+		nuovaSpesa = <prepara ordine nuovoOrdine>
+		send (nuovaSpesa) to p.ok_spesa;
+		p = receive (s) to fine_servizio;
+}
+
+process cliente[i]{
+	port Spesa ok_spesa;
+	port int ok_numero;
+	int mioNumero;
+	Ordine ordine;
+	Spesa spesa;
+	signal s;	
+
+	send (s) to biglietteria.prendiNumero;
+	P = receive (mioNumero) from ok_numero;
+	send (s) to fornario.turno[mioNumero];
+	ordine = <prepara ordine>
+	send (ordine) to fornaio.ordinazione;
+	p = receive (spesa) from ok_spesa;
+	send (s) to biglietteria.uscitaCliente;
+}
